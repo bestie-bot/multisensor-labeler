@@ -36,7 +36,7 @@ Go ahead and make your adjustments with your thresholds to begin your blob separ
 
 When you think you have the item isolated, click on `Detect Blobs`, and you should see your bounding boxes appear. Click `Save Labels`when ready.
 
-Labels are saved in the [http://host.robots.ox.ac.uk/pascal/VOC/voc2012/](Pascal VOC label format). Currently, it defaults to saving the `Person` class and the bounding boxes `xmin, ymin, xmax, ymax`.
+Labels are saved in the [Pascal VOC label format](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/). Currently, it defaults to saving the `Person` class and the bounding boxes `xmin, ymin, xmax, ymax`.
 
 If the bounding boxes are off at all, you can change the boxes manually. Start by changing the sensor2 boxes and then clicking on `Calc S2 Boxes Manually`. This will adjust the bounding boxes in both images. You MUST use the sensor 2 bounding boxes as the source of truth.
 
