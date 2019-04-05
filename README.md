@@ -1,6 +1,6 @@
 # The Multisensor Labeler
 
-The labeler sysem currently takes any two sensors, and creates a bounding box on all iamges at the same time based on isolated blobs within sensor two. This allows you to quickly label based on a specific item. It is extremely helpful when you can threshold out an object, such as in thermal imaging.
+The labeler sysem currently takes any two sensors, and creates a bounding box on all images at the same time based on isolated blobs within sensor two. This allows you to quickly label based on a specific item. It is extremely helpful when you can threshold out an object, such as in thermal imaging.
 
 ### Dependencies
 
@@ -47,6 +47,8 @@ The offsets are also easily modified between images. You can change the default 
 This needs a major UI upgrade, and some robustness. However, it is the only app currently that can isolate and label specific multi-sensor images at the same time.
 
 PR requests are welcome.
+
+### License
 
 MIT LICENSE
 
