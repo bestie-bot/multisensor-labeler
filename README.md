@@ -11,16 +11,14 @@ The Multisensor Labeler uses a number of open source projects and libraries to w
 - [OpenCV 3.4.2]
 - [OpenCV 4 and Above]
 
-You will also need to install the following:
-
-- [numpy]
-- [natsort]
+The rest of the dependencies are covered in the requirements.txt file install as seen below in the code.
 
 ### Installation and run app
 
 ```sh
 $ git clone https://github.com/sugey/multisensor-labeler
 $ cd multisensor-labeler
+$ pip install -r requirements.txt
 $ python3 multi.py
 ```
 
