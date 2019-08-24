@@ -323,6 +323,11 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.load_image(self.image1, 1)
         self.load_image(self.image2, 2)
 
+        # Set the index count box
+        self.indexGoTo.set_text(str(self.count + 1))
+
+        self.load_overlay_image()
+
         # If we're in the labeled zone, add labels
         if (len(os.listdir(self.sensorOneSaveFolderPath)) > self.count):
             self.load_prior_boxes()
@@ -338,11 +343,16 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.load_image(self.image1, 1)
         self.load_image(self.image2, 2)
 
+        # Set the index count box
+        self.indexGoTo.set_text(str(self.count + 1))
+
+        self.load_overlay_image()
+
         # If we're in the labeled zone, add labels
         if (len(os.listdir(self.sensorOneSaveFolderPath)) > self.count):
             self.load_prior_boxes()
 
-        self.fileLabel1.set_text(self.sensorOneImages[self.count])
+        self.fileLabel1.set_text(str(self.sensorOneImages[self.count]))
 
     def callback(self, value):
         pass
