@@ -66,10 +66,12 @@ class MultiSensorFrameAligner(Gtk.Window):
         grid.attach(button7, 2, 2, 1, 1)  # grid location
 
         button11 = Gtk.Button("Save Adjusted Image")
-        button11.connect("clicked", self.calc_manual_rectangles)
+        button11.connect("clicked", self.save_image)
         grid.attach(button11, 1, 8, 1, 1)  # grid location
 
         self.image1 = Gtk.Image()
+        self.image2 = Gtk.Image()
+        self.image3 = Gtk.Image()
         grid.attach(self.image1, 0, 3, 1, 1)
 
         self.fileLabel1 = Gtk.Label()
@@ -138,6 +140,7 @@ class MultiSensorFrameAligner(Gtk.Window):
 
         self.indexGoTo = Gtk.Entry()
         grid.attach(self.indexGoTo, 1, 11, 1, 1)
+        self.indexGoTo.set_text(str(self.count + 1))
 
         button12 = Gtk.Button("Go to Index")
         button12.connect("clicked", self.go_to_index)
@@ -146,8 +149,9 @@ class MultiSensorFrameAligner(Gtk.Window):
         # self.setup_trackbars(self.range_filter)
 
     def go_to_index(self, widget):
-        index = self.indexGoTo.get_text()
-        print(f"Current index {index}")
+        self.count = (self.indexGoTo.get_text() + 1)
+        self.load_image(self.image1, 1)
+        self.load_image(self.image2, 2)
 
     def load_image(self, widget, sensor):
         self.imageArray1 = cv2.imread(os.path.join(
@@ -280,10 +284,10 @@ class MultiSensorFrameAligner(Gtk.Window):
         print('Sync complete. Unmatched files deleted.')
 
         self.fileLabel1.set_text(self.sensorOneImages[self.count])
-        self.fileLabel2.set_text(self.sensorTwoImages[self.count])
 
         self.load_image(self.image1, 1)
         self.load_image(self.image2, 2)
+        self.load_overlay_image()
 
     def on_folder_clicked(self, widget, sensor_number):
         dialog = Gtk.FileChooserDialog("Please choose a folder", self,
@@ -324,7 +328,6 @@ class MultiSensorFrameAligner(Gtk.Window):
             self.load_prior_boxes()
 
         self.fileLabel1.set_text(self.sensorOneImages[self.count])
-        self.fileLabel2.set_text(self.sensorTwoImages[self.count])
 
     def load_prev_image(self, widget):
         if self.count == 0:
@@ -340,19 +343,18 @@ class MultiSensorFrameAligner(Gtk.Window):
             self.load_prior_boxes()
 
         self.fileLabel1.set_text(self.sensorOneImages[self.count])
-        self.fileLabel2.set_text(self.sensorTwoImages[self.count])
 
     def callback(self, value):
         pass
 
-    def calc_manual_rectangles(self, widget):
+    def save_image(self, widget):
         self.load_image(self.image1, 1)
         self.load_image(self.image2, 2)
 
-        xMin1Sensor2 = str(self.xMin1SensorTwo.get_text())
-        xMax1Sensor2 = str(self.xMax1SensorTwo.get_text())
-        yMin1Sensor2 = str(self.yMin1SensorTwo.get_text())
-        yMax1Sensor2 = str(self.yMax1SensorTwo.get_text())
+        x_offset = str(self.opacity.get_text())
+        y_offset = str(self.opacity.get_text())
+        rotateLR = str(self.opacity.get_text())
+        rotateUD = str(self.opacity.get_text())
 
         img = cv2.rectangle(self.imageArray1, ((int(xMin1Sensor2)+int(self.xMinOffset.get_text())), (int(yMin1Sensor2)+int(self.yMinOffset.get_text()))),
                             ((int(xMax1Sensor2)+int(self.xMaxOffset.get_text())), (int(yMax1Sensor2)+int(self.yMaxOffset.get_text()))), (0, 255, 0), 2)
@@ -378,30 +380,39 @@ class MultiSensorFrameAligner(Gtk.Window):
             img2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image2.set_from_pixbuf(pixbuf2)
 
+    def load_overlay_image(self):
+        frame1 = self.imageArray1.copy()
+        frame2 = self.imageArray2.copy()
+        alpha = self.opacity / 100
+
+        # Add transparency
+        frame3 = cv2.addWeighted(frame2, alpha, frame1, 1 - alpha, 0, frame1)
+
+        h3, w3, d3 = frame3.shape
+        pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
+            frame3.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+        self.image1.set_from_pixbuf(pixbuf3)
+
     def change_value(self, value, channel):
         if channel == 'opacity':
             self.opacity = value.get_value()
+            # lower opacity
         elif channel == 'x':
             self.x_offset = value.get_value()
+            # move self.image2 left or right
         elif channel == 'y':
             self.y_offset = value.get_value()
+            # move self.image2 up or down
         elif channel == 'rotateLR':
             self.rotateLR = value.get_value()
+            # rotate self.image2 with warp?
         elif channel == 'rotateUD':
             self.rotateUD = value.get_value()
+            # rotate self.image2 with warp?
         else:
             pass
 
-        frame_to_thresh = self.imageArray2.copy()
-        thresh = cv2.inRange(frame_to_thresh, (self.red_value_min, self.green_value_min,
-                                               self.blue_value_min), (self.red_value_max, self.green_value_max, self.blue_value_max))
-        preview = cv2.bitwise_and(
-            self.imageArray2, self.imageArray2, mask=thresh)
-
-        h3, w3, d3 = preview.shape
-        pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(preview.tostring(
-        ), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-        self.image3.set_from_pixbuf(pixbuf3)
+        self.load_overlay_image()
 
     def setup_trackbars(self, range_filter):
         # cv2.namedWindow("Trackbars", 0)
@@ -422,64 +433,3 @@ class MultiSensorFrameAligner(Gtk.Window):
                 values.append(v)
 
         return values
-
-    def detect_blobs(self, widget):
-        lower = np.array(
-            [self.red_value_min, self.green_value_min, self.blue_value_min], dtype="uint8")
-        upper = np.array(
-            [self.red_value_max, self.green_value_max, self.blue_value_max], dtype="uint8")
-
-        # find the colors within the specified boundaries and apply
-        # the mask
-        mask = cv2.inRange(self.imageArray2, lower, upper)
-        # mask = cv2.GaussianBlur(mask, (3,3), 0)
-
-        (cnts, _) = cv2.findContours(mask.copy(),
-                                     cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        if len(cnts) > 0:
-            cnt = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
-            x, y, w, h = cv2.boundingRect(cnt)
-            self.contourXmin = x
-            self.contourYmin = y
-            self.contourXmax = x + w
-            self.contourYmax = y + h
-            img = cv2.rectangle(self.imageArray1, ((x+int(self.xMinOffset.get_text())), (y+int(self.xMaxOffset.get_text()))),
-                                ((x+w+int(self.yMinOffset.get_text())), (y+h+int(self.yMaxOffset.get_text()))), (0, 255, 0), 2)
-            img2 = cv2.rectangle(self.imageArray2, (x, y),
-                                 (x+w, y+h), (0, 255, 0), 2)
-            self.xMin1SensorOne.set_text(
-                str(x+int(self.xMinOffset.get_text())))
-            self.yMin1SensorOne.set_text(
-                str(y+int(self.yMinOffset.get_text())))
-            self.xMax1SensorOne.set_text(
-                str(x+w+int(self.xMaxOffset.get_text())))
-            self.yMax1SensorOne.set_text(
-                str(y+h+int(self.yMaxOffset.get_text())))
-            self.xMin1SensorTwo.set_text(str(x))
-            self.xMax1SensorTwo.set_text(str(x+w))
-            self.yMin1SensorTwo.set_text(str(y))
-            self.yMax1SensorTwo.set_text(str(y+h))
-
-        h1, w1, d1 = img.shape
-        pixbuf1 = GdkPixbuf.Pixbuf.new_from_data(
-            img.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w1, h1, w1*3, None, None)
-        self.image1.set_from_pixbuf(pixbuf1)
-
-        h3, w3, d3 = img2.shape
-        pixbuf2 = GdkPixbuf.Pixbuf.new_from_data(
-            img2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-        self.image2.set_from_pixbuf(pixbuf2)
-
-    def reset_labels(self, widget):
-        self.load_image(self.image1, 1)
-        self.load_image(self.image2, 2)
-
-        self.xMin1SensorOne.set_text("0")
-        self.yMin1SensorOne.set_text("0")
-        self.xMax1SensorOne.set_text("0")
-        self.yMax1SensorOne.set_text("0")
-        self.xMin1SensorTwo.set_text("0")
-        self.xMax1SensorTwo.set_text("0")
-        self.yMin1SensorTwo.set_text("0")
-        self.yMax1SensorTwo.set_text("0")
