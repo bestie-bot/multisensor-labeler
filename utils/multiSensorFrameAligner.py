@@ -394,7 +394,7 @@ class MultiSensorFrameAligner(Gtk.Window):
             img2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image2.set_from_pixbuf(pixbuf2)
 
-    def load_overlay_image(self, opacity_value=50, temp_image=False):
+    def load_overlay_image(self, opacity_value=50, temp_image=False, do_opacity=True):
         frame1 = self.imageArray1.copy()
 
         if temp_image:
@@ -414,11 +414,11 @@ class MultiSensorFrameAligner(Gtk.Window):
             # If it's not the first adjustment
             self.move_image(value, 0)
         else:
-            self.initial_y_offset = 0 - value
+            self.move_image(0, value)
 
     def calc_opacity(self, value, temp_image=False, frame=None):
         alpha = value / 100
-        frame1 = self.imageArray1
+        frame1 = self.imageArray1.copy()
 
         if temp_image:
             if frame:
@@ -430,8 +430,6 @@ class MultiSensorFrameAligner(Gtk.Window):
 
         image = cv2.addWeighted(
             frame2, alpha, frame1, 1 - alpha, 0, frame1)
-
-        cv2.imshow('image', image)
 
         return image
 
@@ -453,16 +451,17 @@ class MultiSensorFrameAligner(Gtk.Window):
 
     def change_value(self, value, channel):
         if channel == 'opacity':
-            opacity = value.get_value()
-            self.calc_opacity(opacity)
+            self.opacity = value.get_value()
+            image = self.calc_opacity(self.opacity)
+            self.load_overlay_image(self.opacity, True, False)
         elif channel == 'x':
             self.x_offset = value.get_value()
             # move self.image2 left or right
-            self.calc_image_offset(self.x_offset, 'x')
+            self.move_image(self.x_offset, self.y_offset)
         elif channel == 'y':
             self.y_offset = value.get_value()
             # move self.image2 up or down
-            self.move_image(0, self.y_offset)
+            self.move_image(self.x_offset, self.y_offset)
         elif channel == 'rotateLR':
             self.rotateLR = value.get_value()
             # rotate self.image2 with warp?
