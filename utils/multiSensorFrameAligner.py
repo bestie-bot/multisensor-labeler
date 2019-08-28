@@ -28,6 +28,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.sensorTwoSaveFolderPath = ''
         self.imageArray1 = []
         self.imageArray2 = []
+        self.imageArray3 = []
         self.currentIndex = 0
         self.count = 0
         self.filter = 'rgb'
@@ -37,6 +38,9 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.y_offset = 0
         self.rotateLR = 0
         self.rotateUD = 0
+        self.ongoing_x_offset = 0
+        self.initial_y_offset = 0
+        self.time_through = 0
 
         grid = Gtk.Grid()
         self.add(grid)
@@ -390,29 +394,75 @@ class MultiSensorFrameAligner(Gtk.Window):
             img2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image2.set_from_pixbuf(pixbuf2)
 
-    def load_overlay_image(self):
+    def load_overlay_image(self, opacity_value=50, temp_image=False):
         frame1 = self.imageArray1.copy()
-        frame2 = self.imageArray2.copy()
-        alpha = self.opacity / 100
 
-        # Add transparency
-        frame3 = cv2.addWeighted(frame2, alpha, frame1, 1 - alpha, 0, frame1)
+        if temp_image:
+            frame2 = self.imageArray3
+        else:
+            frame2 = self.imageArray2
 
-        h3, w3, d3 = frame3.shape
+        opacity_image = self.calc_opacity(self.opacity, temp_image, frame2)
+
+        h3, w3, d3 = self.imageArray1.shape
         pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-            frame3.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+            opacity_image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image1.set_from_pixbuf(pixbuf3)
+
+    def calc_image_offset(self, value, direction):
+        if direction == 'x':
+            # If it's not the first adjustment
+            self.move_image(value, 0)
+        else:
+            self.initial_y_offset = 0 - value
+
+    def calc_opacity(self, value, temp_image=False, frame=None):
+        alpha = value / 100
+        frame1 = self.imageArray1
+
+        if temp_image:
+            if frame:
+                frame2 = frame.copy()
+            else:
+                frame2 = self.imageArray3.copy()
+        else:
+            frame2 = self.imageArray2.copy()
+
+        image = cv2.addWeighted(
+            frame2, alpha, frame1, 1 - alpha, 0, frame1)
+
+        cv2.imshow('image', image)
+
+        return image
+
+    def move_image(self, x=0, y=0):
+        # Store height and width of the image
+        frame2 = self.imageArray2
+        height, width = frame2.shape[:2]
+
+        T = np.float32([[1, 0, x], [0, 1, y]])
+
+        self.imageArray3 = cv2.warpAffine(frame2, T, (width, height))
+
+        h3, w3, d3 = self.imageArray1.shape
+        pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
+            self.imageArray3.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+        self.image1.set_from_pixbuf(pixbuf3)
+
+        self.load_overlay_image(self.opacity, True)
 
     def change_value(self, value, channel):
         if channel == 'opacity':
-            self.opacity = value.get_value()
-            # lower opacity
+            opacity = value.get_value()
+            self.calc_opacity(opacity)
         elif channel == 'x':
             self.x_offset = value.get_value()
             # move self.image2 left or right
+            self.calc_image_offset(self.x_offset, 'x')
         elif channel == 'y':
             self.y_offset = value.get_value()
             # move self.image2 up or down
+            self.move_image(0, self.y_offset)
         elif channel == 'rotateLR':
             self.rotateLR = value.get_value()
             # rotate self.image2 with warp?
@@ -422,7 +472,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         else:
             pass
 
-        self.load_overlay_image()
+        self.time_through += 1
 
     def setup_trackbars(self, range_filter):
         # cv2.namedWindow("Trackbars", 0)
