@@ -41,6 +41,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.ongoing_x_offset = 0
         self.initial_y_offset = 0
         self.time_through = 0
+        self.scale = 1.0
 
         grid = Gtk.Grid()
         self.add(grid)
@@ -97,45 +98,55 @@ class MultiSensorFrameAligner(Gtk.Window):
             "value-changed", self.change_value, 'opacity')
         grid.attach(self.trackbarOpacity, 0, 8, 1, 1)
 
+        labelScale = Gtk.Label()
+        labelScale.set_text("Scale")
+        labelScale.set_justify(Gtk.Justification.LEFT)
+        grid.attach(labelScale, 0, 9, 1, 1)
+
+        self.trackbarScale = Gtk.Scale.new_with_range(0, 0, 2, 0.01)
+        self.trackbarScale.connect(
+            "value-changed", self.change_value, 'scale')
+        grid.attach(self.trackbarScale, 0, 9, 1, 1)
+
         labelOpacity = Gtk.Label()
         labelOpacity.set_text("X Position")
         labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 9, 1, 1)
+        grid.attach(labelOpacity, 0, 10, 1, 1)
 
         self.trackbarOffsetX = Gtk.Scale.new_with_range(0, -100, 100, 1)
         self.trackbarOffsetX.connect(
             "value-changed", self.change_value, 'x')
-        grid.attach(self.trackbarOffsetX, 0, 9, 1, 1)
+        grid.attach(self.trackbarOffsetX, 0, 10, 1, 1)
 
         labelOpacity = Gtk.Label()
         labelOpacity.set_text("Y Position")
         labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 10, 1, 1)
+        grid.attach(labelOpacity, 0, 11, 1, 1)
 
         self.trackbarOffsetY = Gtk.Scale.new_with_range(0, -100, 100, 1)
         self.trackbarOffsetY.connect(
             "value-changed", self.change_value, 'y')
-        grid.attach(self.trackbarOffsetY, 0, 10, 1, 1)
+        grid.attach(self.trackbarOffsetY, 0, 11, 1, 1)
 
         labelOpacity = Gtk.Label()
         labelOpacity.set_text("Rotate L/R")
         labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 11, 1, 1)
+        grid.attach(labelOpacity, 0, 12, 1, 1)
 
         self.trackbarRotateLR = Gtk.Scale.new_with_range(0, -90, 90, 1)
         self.trackbarRotateLR.connect(
             "value-changed", self.change_value, 'rotateLR')
-        grid.attach(self.trackbarRotateLR, 0, 11, 1, 1)
+        grid.attach(self.trackbarRotateLR, 0, 12, 1, 1)
 
         labelOpacity = Gtk.Label()
         labelOpacity.set_text("Rotate U/D")
         labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 12, 1, 1)
+        grid.attach(labelOpacity, 0, 13, 1, 1)
 
         self.trackbarRotateUD = Gtk.Scale.new_with_range(0, -90, 90, 1)
         self.trackbarRotateUD.connect(
             "value-changed", self.change_value, 'rotateUD')
-        grid.attach(self.trackbarRotateUD, 0, 12, 1, 1)
+        grid.attach(self.trackbarRotateUD, 0, 13, 1, 1)
 
         labelIndexGoTo = Gtk.Label()
         labelIndexGoTo.set_text("Current Index")
@@ -447,6 +458,65 @@ class MultiSensorFrameAligner(Gtk.Window):
             pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
                 image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
             self.image1.set_from_pixbuf(pixbuf3)
+        elif channel == 'scale':
+            self.scale = value.get_value()
+
+            if self.scale <= 1:
+                desired_h = 240
+                desired_w = 320
+
+                # old_size is in (height, width) format
+                h, w = self.imageArray1.shape[:2]
+                print(f"h: {h}, w: {w}")
+
+                h1 = int(240 * self.scale)
+                w1 = int(320 * self.scale)
+                print(f"h1: {h1}, w1: {w1}")
+                # w1 = tuple([int(x*ratio) for x in old_size])
+
+                # new_size should be in (width, height) format
+
+                im = cv2.resize(self.imageArray2, (0, 0),
+                                fx=self.scale, fy=self.scale)
+                cv2.imshow('im: ', im)
+
+                delta_w = desired_w - w1
+                delta_h = desired_h - h1
+                top, bottom = delta_h//2, delta_h-(delta_h//2)
+                left, right = delta_w//2, delta_w-(delta_w//2)
+
+                color = [0, 0, 0]
+                new_im = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
+                                            value=color)
+
+                cv2.imshow('image: ', new_im)
+            # if len(self.imageArray3) > 0:
+            #     image = cv2.resize(self.imageArray3, (0, 0),
+            #                        fx=self.scale*320, fy=self.scale*240)
+
+            # else:
+            #     image = cv2.resize(self.imageArray2, (0, 0),
+            #                        fx=self.scale*320, fy=self.scale*240)
+
+            # image_zero = np.zeros((320, 240, 3))
+            # image_frame = cv2.bitwise_and(image_zero, image, mask=None)
+
+            # cv2.imshow('image', image_frame)
+
+            # self.imageArray3 = image
+
+            # Need to rescale the full image to 320 x 240
+            # self.move_image(x=(160*self.scale), y=(120*self.scale))
+
+            # self.imageArray2 = image
+
+            # self.load_overlay_image(self.opacity, True)
+
+            # h3, w3, d3 = self.imageArray1.shape
+            # pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
+            #     image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+            # self.image1.set_from_pixbuf(pixbuf3)
+
         elif channel == 'x':
             self.x_offset = value.get_value()
             # move self.image2 left or right
