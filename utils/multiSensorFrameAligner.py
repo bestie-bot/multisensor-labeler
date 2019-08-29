@@ -395,36 +395,26 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.image2.set_from_pixbuf(pixbuf2)
 
     def load_overlay_image(self, opacity_value=50, temp_image=False, do_opacity=True):
-        frame1 = self.imageArray1.copy()
+        frame1 = self.imageArray1
 
         if temp_image:
             frame2 = self.imageArray3
         else:
             frame2 = self.imageArray2
 
-        opacity_image = self.calc_opacity(self.opacity, temp_image, frame2)
+        opacity_image = self.calc_opacity(self.opacity)
 
         h3, w3, d3 = self.imageArray1.shape
         pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
             opacity_image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image1.set_from_pixbuf(pixbuf3)
 
-    def calc_image_offset(self, value, direction):
-        if direction == 'x':
-            # If it's not the first adjustment
-            self.move_image(value, 0)
-        else:
-            self.move_image(0, value)
-
-    def calc_opacity(self, value, temp_image=False, frame=None):
+    def calc_opacity(self, value):
         alpha = value / 100
         frame1 = self.imageArray1.copy()
 
-        if temp_image:
-            if frame:
-                frame2 = frame.copy()
-            else:
-                frame2 = self.imageArray3.copy()
+        if len(self.imageArray3) > 0:
+            frame2 = self.imageArray3.copy()
         else:
             frame2 = self.imageArray2.copy()
 
@@ -453,7 +443,10 @@ class MultiSensorFrameAligner(Gtk.Window):
         if channel == 'opacity':
             self.opacity = value.get_value()
             image = self.calc_opacity(self.opacity)
-            self.load_overlay_image(self.opacity, True, False)
+            h3, w3, d3 = self.imageArray1.shape
+            pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
+                image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+            self.image1.set_from_pixbuf(pixbuf3)
         elif channel == 'x':
             self.x_offset = value.get_value()
             # move self.image2 left or right
