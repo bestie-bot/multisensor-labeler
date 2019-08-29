@@ -467,18 +467,13 @@ class MultiSensorFrameAligner(Gtk.Window):
 
                 # old_size is in (height, width) format
                 h, w = self.imageArray1.shape[:2]
-                print(f"h: {h}, w: {w}")
 
                 h1 = int(240 * self.scale)
                 w1 = int(320 * self.scale)
                 print(f"h1: {h1}, w1: {w1}")
-                # w1 = tuple([int(x*ratio) for x in old_size])
-
-                # new_size should be in (width, height) format
 
                 im = cv2.resize(self.imageArray2, (0, 0),
                                 fx=self.scale, fy=self.scale)
-                cv2.imshow('im: ', im)
 
                 delta_w = desired_w - w1
                 delta_h = desired_h - h1
@@ -486,10 +481,15 @@ class MultiSensorFrameAligner(Gtk.Window):
                 left, right = delta_w//2, delta_w-(delta_w//2)
 
                 color = [0, 0, 0]
-                new_im = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
-                                            value=color)
+                self.imageArray3 = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
+                                                      value=color)
 
-                cv2.imshow('image: ', new_im)
+                # h3, w3, d3 = self.imageArray1.shape
+                # pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
+                #     new_image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+                # self.image1.set_from_pixbuf(pixbuf3)
+                self.load_overlay_image(self.opacity, True)
+
             # if len(self.imageArray3) > 0:
             #     image = cv2.resize(self.imageArray3, (0, 0),
             #                        fx=self.scale*320, fy=self.scale*240)
