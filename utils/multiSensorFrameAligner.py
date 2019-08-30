@@ -436,7 +436,10 @@ class MultiSensorFrameAligner(Gtk.Window):
 
     def move_image(self, x=0, y=0):
         # Store height and width of the image
-        frame2 = self.imageArray2
+        if len(self.imageArray3) > 0:
+            frame2 = self.imageArray3.copy()
+        else:
+            frame2 = self.imageArray2.copy()
         height, width = frame2.shape[:2]
 
         T = np.float32([[1, 0, x], [0, 1, y]])
@@ -470,7 +473,6 @@ class MultiSensorFrameAligner(Gtk.Window):
 
                 h1 = int(240 * self.scale)
                 w1 = int(320 * self.scale)
-                print(f"h1: {h1}, w1: {w1}")
 
                 im = cv2.resize(self.imageArray2, (0, 0),
                                 fx=self.scale, fy=self.scale)
@@ -480,9 +482,19 @@ class MultiSensorFrameAligner(Gtk.Window):
                 top, bottom = delta_h//2, delta_h-(delta_h//2)
                 left, right = delta_w//2, delta_w-(delta_w//2)
 
+                # Make sure rounding errors accounted for
+                new_h, new_w = im.shape[:2]
+
+                if (left + right + new_w) != desired_w:
+                    right -= 1
+
+                if (top + bottom + new_h) != desired_h:
+                    bottom -= 1
+
                 color = [0, 0, 0]
                 self.imageArray3 = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
                                                       value=color)
+                # self.imageArray2 = self.imageArray3
 
                 # h3, w3, d3 = self.imageArray1.shape
                 # pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
