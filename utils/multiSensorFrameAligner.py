@@ -144,7 +144,8 @@ class MultiSensorFrameAligner(Gtk.Window):
         # self.setup_trackbars(self.range_filter)
 
     def go_to_index(self, widget):
-        self.count = (self.indexGoTo.get_text() + 1)
+        self.count = (int(self.indexGoTo.get_text()) - 1)
+        self.fileLabel1.set_text(self.sensorOneImages[self.count])
         self.load_image(self.image1, 1)
 
     def load_image(self, widget, sensor):
