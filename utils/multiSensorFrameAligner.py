@@ -70,9 +70,13 @@ class MultiSensorFrameAligner(Gtk.Window):
         button7.connect("clicked", self.load_prev_image)
         grid.attach(button7, 2, 2, 1, 1)  # grid location
 
-        button11 = Gtk.Button("Save Adjusted Image")
-        button11.connect("clicked", self.save_image)
-        grid.attach(button11, 1, 8, 1, 1)  # grid location
+        self.button11 = Gtk.Button("Calculate Offsets")
+        self.button11.connect("clicked", self.calc_offsets)
+        grid.attach(self.button11, 0, 12, 1, 1)  # grid location
+
+        button12 = Gtk.Button("Save Adjusted Image")
+        button12.connect("clicked", self.save_image)
+        grid.attach(button12, 1, 8, 1, 1)  # grid location
 
         self.image1 = Gtk.Image()
         self.image2 = Gtk.Image()
@@ -93,60 +97,36 @@ class MultiSensorFrameAligner(Gtk.Window):
         labelOpacity.set_justify(Gtk.Justification.LEFT)
         grid.attach(labelOpacity, 0, 8, 1, 1)
 
-        self.trackbarOpacity = Gtk.Scale.new_with_range(0, 0, 100, 1)
-        self.trackbarOpacity.connect(
-            "value-changed", self.change_value, 'opacity')
+        self.trackbarOpacity = Gtk.Entry()
         grid.attach(self.trackbarOpacity, 0, 8, 1, 1)
+        self.trackbarOpacity.set_text(str(50))
 
         labelScale = Gtk.Label()
         labelScale.set_text("Scale")
         labelScale.set_justify(Gtk.Justification.LEFT)
         grid.attach(labelScale, 0, 9, 1, 1)
 
-        self.trackbarScale = Gtk.Scale.new_with_range(0, 0, 2, 0.01)
-        self.trackbarScale.connect(
-            "value-changed", self.change_value, 'scale')
+        self.trackbarScale = Gtk.Entry()
         grid.attach(self.trackbarScale, 0, 9, 1, 1)
+        self.trackbarScale.set_text(str(1))
 
-        labelOpacity = Gtk.Label()
-        labelOpacity.set_text("X Position")
-        labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 10, 1, 1)
+        labelOffsetX = Gtk.Label()
+        labelOffsetX.set_text("X Position")
+        labelOffsetX.set_justify(Gtk.Justification.LEFT)
+        grid.attach(labelOffsetX, 0, 10, 1, 1)
 
-        self.trackbarOffsetX = Gtk.Scale.new_with_range(0, -100, 100, 1)
-        self.trackbarOffsetX.connect(
-            "value-changed", self.change_value, 'x')
+        self.trackbarOffsetX = Gtk.Entry()
         grid.attach(self.trackbarOffsetX, 0, 10, 1, 1)
+        self.trackbarOffsetX.set_text(str(0))
 
-        labelOpacity = Gtk.Label()
-        labelOpacity.set_text("Y Position")
-        labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 11, 1, 1)
+        labelOffsetY = Gtk.Label()
+        labelOffsetY.set_text("Y Position")
+        labelOffsetY.set_justify(Gtk.Justification.LEFT)
+        grid.attach(labelOffsetY, 0, 11, 1, 1)
 
-        self.trackbarOffsetY = Gtk.Scale.new_with_range(0, -100, 100, 1)
-        self.trackbarOffsetY.connect(
-            "value-changed", self.change_value, 'y')
+        self.trackbarOffsetY = Gtk.Entry()
         grid.attach(self.trackbarOffsetY, 0, 11, 1, 1)
-
-        labelOpacity = Gtk.Label()
-        labelOpacity.set_text("Rotate L/R")
-        labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 12, 1, 1)
-
-        self.trackbarRotateLR = Gtk.Scale.new_with_range(0, -90, 90, 1)
-        self.trackbarRotateLR.connect(
-            "value-changed", self.change_value, 'rotateLR')
-        grid.attach(self.trackbarRotateLR, 0, 12, 1, 1)
-
-        labelOpacity = Gtk.Label()
-        labelOpacity.set_text("Rotate U/D")
-        labelOpacity.set_justify(Gtk.Justification.LEFT)
-        grid.attach(labelOpacity, 0, 13, 1, 1)
-
-        self.trackbarRotateUD = Gtk.Scale.new_with_range(0, -90, 90, 1)
-        self.trackbarRotateUD.connect(
-            "value-changed", self.change_value, 'rotateUD')
-        grid.attach(self.trackbarRotateUD, 0, 13, 1, 1)
+        self.trackbarOffsetY.set_text(str(0))
 
         labelIndexGoTo = Gtk.Label()
         labelIndexGoTo.set_text("Current Index")
@@ -173,25 +153,14 @@ class MultiSensorFrameAligner(Gtk.Window):
             self.sensorOnePath, self.sensorOneImages[self.count]))
         self.imageArray1 = cv2.cvtColor(self.imageArray1, cv2.COLOR_BGR2RGB)
         self.imageArray1 = cv2.resize(self.imageArray1, (320, 240))
-        h1, w1, d1 = self.imageArray1.shape
-        pixbuf1 = GdkPixbuf.Pixbuf.new_from_data(self.imageArray1.tostring(
-        ), GdkPixbuf.Colorspace.RGB, False, 8, w1, h1, w1*3, None, None)
 
         self.imageArray2 = cv2.imread(os.path.join(
             self.sensorTwoPath, self.sensorTwoImages[self.count]))
         self.imageArray2 = cv2.cvtColor(self.imageArray2, cv2.COLOR_BGR2RGB)
         self.imageArray2 = cv2.resize(self.imageArray2, (320, 240))
-        h2, w2, d2 = self.imageArray2.shape
-        pixbuf2 = GdkPixbuf.Pixbuf.new_from_data(self.imageArray2.tostring(
-        ), GdkPixbuf.Colorspace.RGB, False, 8, w2, h2, w2*3, None, None)
 
-        if sensor == 1:
-            self.image1.set_from_pixbuf(pixbuf1)
-        elif sensor == 2:
-            self.image2.set_from_pixbuf(pixbuf2)
-        else:
-            self.image1.set_from_pixbuf(pixbuf1)
-            self.image2.set_from_pixbuf(pixbuf2)
+        self.calc_offsets(self.button11)
+        self.load_overlay_image(True)
 
     def on_file_clicked(self, widget):
         dialog = Gtk.FileChooserDialog("Please choose a file", self,
@@ -261,6 +230,17 @@ class MultiSensorFrameAligner(Gtk.Window):
 
         dialog.destroy()
 
+    def calc_offsets(self, widget):
+        self.opacity = int(self.trackbarOpacity.get_text())
+        self.x_offset = int(self.trackbarOffsetX.get_text())
+        self.y_offset = int(self.trackbarOffsetY.get_text())
+        self.scale = float(self.trackbarScale.get_text())
+
+        self.calc_scale(self.scale)
+        self.move_image(self.x_offset, self.y_offset)
+        self.calc_opacity(self.opacity)
+        self.load_overlay_image(True)
+
     def on_sync_folders(self, widget):
         """Sync the image folders in case of
         any non-matching images
@@ -301,8 +281,6 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.fileLabel1.set_text(self.sensorOneImages[self.count])
 
         self.load_image(self.image1, 1)
-        self.load_image(self.image2, 2)
-        self.load_overlay_image()
 
     def on_folder_clicked(self, widget, sensor_number):
         dialog = Gtk.FileChooserDialog("Please choose a folder", self,
@@ -372,23 +350,7 @@ class MultiSensorFrameAligner(Gtk.Window):
     def callback(self, value):
         pass
 
-    def save_image(self, widget):
-        path = self.sensorTwoSaveFolderPath + \
-            '/' + self.sensorOneImages[self.count]
-
-        image = cv2.cvtColor(self.imageArray3, cv2.COLOR_BGR2GRAY)
-
-        cv2.imwrite(path, image)
-
-        self.imageArray3 = []
-        self.time_through = 0
-
-        self.load_next_image(self.button6)
-        self.calc_opacity(self.opacity)
-        self.calc_scale(self.scale)
-        self.move_image(0, 0)
-
-    def load_overlay_image(self, opacity_value=50, temp_image=False, do_opacity=True):
+    def load_overlay_image(self, temp_image=False):
         frame1 = self.imageArray1
 
         if temp_image:
@@ -396,11 +358,9 @@ class MultiSensorFrameAligner(Gtk.Window):
         else:
             frame2 = self.imageArray2
 
-        opacity_image = self.calc_opacity(self.opacity)
-
         h3, w3, d3 = self.imageArray1.shape
         pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-            opacity_image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+            frame2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image1.set_from_pixbuf(pixbuf3)
 
     def calc_opacity(self, value):
@@ -411,38 +371,25 @@ class MultiSensorFrameAligner(Gtk.Window):
             frame2 = self.imageArray3.copy()
         else:
             frame2 = self.imageArray2.copy()
+            self.imageArray3 = frame2
 
-        image = cv2.addWeighted(
+        self.imageArray3 = cv2.addWeighted(
             frame2, alpha, frame1, 1 - alpha, 0, frame1)
-
-        return image
 
     def move_image(self, x=0, y=0):
         # Store height and width of the image
         if len(self.imageArray3) > 0:
             frame2 = self.imageArray3.copy()
-            new_x = x
-            new_y = y
-            # if this exists, and it's not first time through we need to use
-            # the absolute change from the original image
-            # versus where it is now
-            if self.time_through > 0:
-                new_x = self.prev_x_offset - self.x_offset
-                new_y = self.prev_y_offset - self.y_offset
-
         else:
             frame2 = self.imageArray2.copy()
 
         height, width = frame2.shape[:2]
 
-        T = np.float32([[1, 0, new_x], [0, 1, new_y]])
+        T = np.float32([[1, 0, x], [0, 1, y]])
 
         self.imageArray3 = cv2.warpAffine(frame2, T, (width, height))
 
-        h3, w3, d3 = self.imageArray1.shape
-        pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-            self.imageArray3.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-        self.image1.set_from_pixbuf(pixbuf3)
+        return self.imageArray3
 
     def calc_scale(self, scale):
         if scale <= 1:
@@ -475,68 +422,17 @@ class MultiSensorFrameAligner(Gtk.Window):
             color = [0, 0, 0]
             self.imageArray3 = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
                                                   value=color)
-            # self.imageArray2 = self.imageArray3
-            image = self.calc_opacity(self.opacity)
 
-            h3, w3, d3 = self.imageArray1.shape
-            pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-                image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-            self.image1.set_from_pixbuf(pixbuf3)
+    def save_image(self, widget):
+        path = self.sensorTwoSaveFolderPath + \
+            '/' + self.sensorOneImages[self.count]
 
-    def change_value(self, value, channel):
-        if channel == 'opacity':
-            self.opacity = value.get_value()
-            image = self.calc_opacity(self.opacity)
-            h3, w3, d3 = self.imageArray1.shape
-            pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-                image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-            self.image1.set_from_pixbuf(pixbuf3)
-        elif channel == 'scale':
-            self.scale = value.get_value()
-            self.calc_scale(self.scale)
-        elif channel == 'x':
-            self.prev_x_offset = self.x_offset
-            self.prev_y_offset = self.y_offset
-            self.x_offset = value.get_value()
-            # move self.image2 left or right
-            self.move_image(self.x_offset, self.y_offset)
-            self.load_overlay_image(self.opacity, True)
-            self.time_through += 1
-        elif channel == 'y':
-            self.prev_x_offset = self.x_offset
-            self.prev_y_offset = self.y_offset
-            self.y_offset = value.get_value()
-            # move self.image2 up or down
-            self.move_image(self.x_offset, self.y_offset)
-            self.load_overlay_image(self.opacity, True)
-            self.time_through += 1
-        elif channel == 'rotateLR':
-            self.rotateLR = value.get_value()
-            # rotate self.image2 with warp?
-        elif channel == 'rotateUD':
-            self.rotateUD = value.get_value()
-            # rotate self.image2 with warp?
-        else:
-            pass
+        image = cv2.cvtColor(self.imageArray3, cv2.COLOR_BGR2GRAY)
 
-        self.time_through += 1
+        cv2.imwrite(path, image)
 
-    def setup_trackbars(self, range_filter):
-        # cv2.namedWindow("Trackbars", 0)
+        self.imageArray3 = []
+        self.time_through = 0
 
-        for i in ["MIN", "MAX"]:
-            v = 50 if i == "MIN" else 75
-
-            for j in self.range_filter:
-                cv2.createTrackbar("%s_%s" % (
-                    j, i), 'Multi-Sensor Marking App', v, 100, self.callback)
-
-    def get_trackbar_values(self, range_filter):
-        values = []
-
-        for i in ["MIN", "MAX"]:
-            for j in self.range_filter:
-                v = cv2.getTrackbarPos("%s_%s" % (j, i), self.trackbarBox)
-                values.append(v)
-
-        return values
+        self.load_next_image(self.button6)
+        self.calc_offsets(self.button11)
