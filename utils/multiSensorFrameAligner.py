@@ -146,7 +146,6 @@ class MultiSensorFrameAligner(Gtk.Window):
     def go_to_index(self, widget):
         self.count = (self.indexGoTo.get_text() + 1)
         self.load_image(self.image1, 1)
-        self.load_image(self.image2, 2)
 
     def load_image(self, widget, sensor):
         self.imageArray1 = cv2.imread(os.path.join(
@@ -160,7 +159,6 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.imageArray2 = cv2.resize(self.imageArray2, (320, 240))
 
         self.calc_offsets(self.button11)
-        self.load_overlay_image(True)
 
     def on_file_clicked(self, widget):
         dialog = Gtk.FileChooserDialog("Please choose a file", self,
@@ -236,10 +234,11 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.y_offset = int(self.trackbarOffsetY.get_text())
         self.scale = float(self.trackbarScale.get_text())
 
-        self.calc_scale(self.scale)
-        self.move_image(self.x_offset, self.y_offset)
-        self.calc_opacity(self.opacity)
-        self.load_overlay_image(True)
+        imageFromScale = self.calc_scale(self.scale)
+        imageFromMove = self.move_image(
+            self.x_offset, self.y_offset, imageFromScale)
+        imageFromOpacity = self.calc_opacity(self.opacity, imageFromMove)
+        self.load_overlay_image(imageFromOpacity)
 
     def on_sync_folders(self, widget):
         """Sync the image folders in case of
@@ -319,7 +318,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         # Set the index count box
         self.indexGoTo.set_text(str(self.count + 1))
 
-        self.load_overlay_image()
+        self.calc_offsets(self.button11)
 
         # If we're in the labeled zone, add labels
         # if (len(os.listdir(self.sensorOneSaveFolderPath)) > self.count):
@@ -339,7 +338,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         # Set the index count box
         self.indexGoTo.set_text(str(self.count + 1))
 
-        self.load_overlay_image()
+        self.calc_offsets(self.button11)
 
         # If we're in the labeled zone, add labels
         # if (len(os.listdir(self.sensorOneSaveFolderPath)) > self.count):
@@ -350,84 +349,88 @@ class MultiSensorFrameAligner(Gtk.Window):
     def callback(self, value):
         pass
 
-    def load_overlay_image(self, temp_image=False):
-        frame1 = self.imageArray1
-
-        if temp_image:
-            frame2 = self.imageArray3
-        else:
-            frame2 = self.imageArray2
-
+    def load_overlay_image(self, image):
         h3, w3, d3 = self.imageArray1.shape
         pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
-            frame2.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
+            image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
         self.image1.set_from_pixbuf(pixbuf3)
 
-    def calc_opacity(self, value):
+    def calc_opacity(self, value, image):
         alpha = value / 100
         frame1 = self.imageArray1.copy()
 
-        if len(self.imageArray3) > 0:
-            frame2 = self.imageArray3.copy()
-        else:
-            frame2 = self.imageArray2.copy()
-            self.imageArray3 = frame2
+        # if len(self.imageArray3) > 0:
+        #     frame2 = self.imageArray3.copy()
+        # else:
+        #     frame2 = self.imageArray2.copy()
+        #     self.imageArray3 = frame2
 
-        self.imageArray3 = cv2.addWeighted(
-            frame2, alpha, frame1, 1 - alpha, 0, frame1)
+        revisedImage = cv2.addWeighted(
+            image, alpha, frame1, 1 - alpha, 0, frame1)
 
-    def move_image(self, x=0, y=0):
+        return revisedImage
+
+    def move_image(self, x=0, y=0, image=None):
         # Store height and width of the image
-        if len(self.imageArray3) > 0:
-            frame2 = self.imageArray3.copy()
-        else:
-            frame2 = self.imageArray2.copy()
+        # if len(self.imageArray3) > 0:
+        #     frame2 = self.imageArray3.copy()
+        # else:
+        #     frame2 = self.imageArray2.copy()
 
-        height, width = frame2.shape[:2]
+        height, width = image.shape[:2]
 
         T = np.float32([[1, 0, x], [0, 1, y]])
 
-        self.imageArray3 = cv2.warpAffine(frame2, T, (width, height))
+        revisedImage = cv2.warpAffine(image, T, (width, height))
 
-        return self.imageArray3
+        return revisedImage
 
     def calc_scale(self, scale):
-        if scale <= 1:
-            desired_h = 240
-            desired_w = 320
+        desired_h = 240
+        desired_w = 320
 
-            # old_size is in (height, width) format
-            h, w = self.imageArray1.shape[:2]
+        # old_size is in (height, width) format
+        h, w = self.imageArray1.shape[:2]
 
-            h1 = int(240 * scale)
-            w1 = int(320 * scale)
+        h1 = int(240 * scale)
+        w1 = int(320 * scale)
 
-            im = cv2.resize(self.imageArray2, (0, 0),
-                            fx=scale, fy=scale)
+        im = cv2.resize(self.imageArray2, (0, 0),
+                        fx=scale, fy=scale)
 
-            delta_w = desired_w - w1
-            delta_h = desired_h - h1
-            top, bottom = delta_h//2, delta_h-(delta_h//2)
-            left, right = delta_w//2, delta_w-(delta_w//2)
+        delta_w = desired_w - w1
+        delta_h = desired_h - h1
+        top, bottom = delta_h//2, delta_h-(delta_h//2)
+        left, right = delta_w//2, delta_w-(delta_w//2)
 
-            # Make sure rounding errors accounted for
-            new_h, new_w = im.shape[:2]
+        # Make sure rounding errors accounted for
+        new_h, new_w = im.shape[:2]
 
-            if (left + right + new_w) != desired_w:
-                right -= 1
+        if (left + right + new_w) != desired_w:
+            right -= 1
 
-            if (top + bottom + new_h) != desired_h:
-                bottom -= 1
+        if (top + bottom + new_h) != desired_h:
+            bottom -= 1
 
-            color = [0, 0, 0]
-            self.imageArray3 = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
-                                                  value=color)
+        color = [0, 0, 0]
+        image = cv2.copyMakeBorder(im, int(top), int(bottom), int(left), int(right), cv2.BORDER_CONSTANT,
+                                   value=color)
+
+        return image
 
     def save_image(self, widget):
         path = self.sensorTwoSaveFolderPath + \
             '/' + self.sensorOneImages[self.count]
 
-        image = cv2.cvtColor(self.imageArray3, cv2.COLOR_BGR2GRAY)
+        self.x_offset = int(self.trackbarOffsetX.get_text())
+        self.y_offset = int(self.trackbarOffsetY.get_text())
+        self.scale = float(self.trackbarScale.get_text())
+
+        imageFromScale = self.calc_scale(self.scale)
+        imageFromMove = self.move_image(
+            self.x_offset, self.y_offset, imageFromScale)
+
+        image = cv2.cvtColor(imageFromMove, cv2.COLOR_BGR2GRAY)
 
         cv2.imwrite(path, image)
 
