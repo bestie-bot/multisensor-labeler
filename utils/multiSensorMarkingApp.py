@@ -2,7 +2,7 @@
 from __future__ import print_function
 from PIL import Image
 import gi
-gi.require_version('Gtk', '3.0')
+gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GdkPixbuf
 import xml.etree.ElementTree as ET
 from filecmp import dircmp

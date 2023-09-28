@@ -1,6 +1,5 @@
-# import the necessary packages
-from __future__ import print_function
 import gi
+gi.require_version('Gtk', '4.0')
 from PIL import Image
 from gi.repository import Gtk, GdkPixbuf
 import xml.etree.ElementTree as ET
@@ -11,14 +10,17 @@ import cv2
 from natsort import natsorted, ns
 import os
 import sys
-gi.require_version('Gtk', '3.0')
+from functools import partial
+import time
+
 
 
 class MultiSensorFrameAligner(Gtk.Window):
-    def __init__(self):
-        Gtk.Window.__init__(
-            self, title="Multi-Sensor Image Alignment for 2 Sensors")
-        self.set_border_width(16)
+    def __init__(self, app=None):
+        super().__init__(title="Multi-Sensor Image Alignment for 2 Sensors")
+
+        if app:
+            self.set_application(app)
 
         self.sensorOnePath = ''
         self.sensorOneImages = []
@@ -44,43 +46,43 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.scale = 1.0
 
         grid = Gtk.Grid()
-        self.add(grid)
+        self.set_child(grid)
 
-        button1 = Gtk.Button("Choose Sensor 1 Images Folder")
+        button1 = Gtk.Button(label="Choose Sensor 1 Images Folder")
         button1.connect("clicked", self.on_folder_clicked, 1)
         grid.attach(button1, 0, 1, 1, 1)
 
-        button2 = Gtk.Button("Choose Sensor 2 Images Folder")
+        button2 = Gtk.Button(label="Choose Sensor 2 Images Folder")
         button2.connect("clicked", self.on_folder_clicked, 2)
         grid.attach(button2, 1, 1, 1, 1)
 
-        button3 = Gtk.Button("Sync Folders")
+        button3 = Gtk.Button(label="Sync Folders")
         button3.connect("clicked", self.on_sync_folders)
         grid.attach(button3, 0, 2, 1, 1)
 
-        button5 = Gtk.Button("Choose Sensor 2 Save Folder")
-        button5.connect("clicked", self.on_save_folder, 2)
+        button5 = Gtk.Button(label="Choose Sensor 2 Save Folder")
+        button5.connect("clicked", self.on_save_folder)
         grid.attach(button5, 2, 1, 1, 1)
 
-        self.button6 = Gtk.Button("Load next image")
+        self.button6 = Gtk.Button(label="Load next image")
         self.button6.connect("clicked", self.load_next_image)
         grid.attach(self.button6, 1, 2, 1, 1)  # grid location
 
-        button7 = Gtk.Button("Load previous image")
+        button7 = Gtk.Button(label="Load previous image")
         button7.connect("clicked", self.load_prev_image)
         grid.attach(button7, 2, 2, 1, 1)  # grid location
 
-        self.button11 = Gtk.Button("Calculate Offsets")
+        self.button11 = Gtk.Button(label="Calculate Offsets")
         self.button11.connect("clicked", self.calc_offsets)
         grid.attach(self.button11, 0, 12, 1, 1)  # grid location
 
-        button12 = Gtk.Button("Save Adjusted Image")
+        button12 = Gtk.Button(label="Save Adjusted Image")
         button12.connect("clicked", self.save_image)
         grid.attach(button12, 1, 8, 1, 1)  # grid location
 
-        self.image1 = Gtk.Image()
-        self.image2 = Gtk.Image()
-        self.image3 = Gtk.Image()
+        self.image1 = Gtk.Picture()
+        self.image2 = Gtk.Picture()
+        self.image3 = Gtk.Picture()
         grid.attach(self.image1, 0, 3, 1, 1)
 
         self.fileLabel1 = Gtk.Label()
@@ -137,7 +139,7 @@ class MultiSensorFrameAligner(Gtk.Window):
         grid.attach(self.indexGoTo, 1, 11, 1, 1)
         self.indexGoTo.set_text(str(self.count + 1))
 
-        button12 = Gtk.Button("Go to Index")
+        button12 = Gtk.Button(label="Go to Index")
         button12.connect("clicked", self.go_to_index)
         grid.attach(button12, 1, 12, 1, 1)  # grid location
 
@@ -149,23 +151,25 @@ class MultiSensorFrameAligner(Gtk.Window):
         self.load_image(self.image1, 1)
 
     def load_image(self, widget, sensor):
+        print('Loading image...')
         self.imageArray1 = cv2.imread(os.path.join(
             self.sensorOnePath, self.sensorOneImages[self.count]))
         self.imageArray1 = cv2.cvtColor(self.imageArray1, cv2.COLOR_BGR2RGB)
         self.imageArray1 = cv2.resize(self.imageArray1, (320, 240))
+        print('Image 1 loaded.')
 
         self.imageArray2 = cv2.imread(os.path.join(
             self.sensorTwoPath, self.sensorTwoImages[self.count]))
         self.imageArray2 = cv2.cvtColor(self.imageArray2, cv2.COLOR_BGR2RGB)
         self.imageArray2 = cv2.resize(self.imageArray2, (320, 240))
+        print('Image 2 loaded.')
 
         self.calc_offsets(self.button11)
 
     def on_file_clicked(self, widget):
-        dialog = Gtk.FileChooserDialog("Please choose a file", self,
+        dialog = Gtk.FileChooserNative("Please choose a file", self,
                                        Gtk.FileChooserAction.OPEN,
-                                       (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                        Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+                                       "Open", "Cancel")
 
         self.add_filters(dialog)
 
@@ -205,40 +209,59 @@ class MultiSensorFrameAligner(Gtk.Window):
             else:
                 self.sensorTwoImages.append(f)
 
-    def on_save_folder(self, widget, sensor_number):
-        """Where to save images. Sets the proper
-        path for self.sensorXsave
-        """
-        dialog = Gtk.FileChooserDialog("Please choose a save folder for your annotations", self,
-                                       Gtk.FileChooserAction.SELECT_FOLDER,
-                                       (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                        "Select", Gtk.ResponseType.OK))
-        dialog.set_default_size(800, 400)
-
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
+    def on_save_folder_response(self, dialog, response_id):
+        print("Sorting response...")
+        
+        if response_id == Gtk.ResponseType.OK:
             print("Select clicked")
 
             # set the global filePath for the dialog buttons
-            self.sensorTwoSaveFolderPath = dialog.get_filename()
-            print("Save folder selected for Sensor 2: " +
-                  self.sensorTwoSaveFolderPath)
-
-        elif response == Gtk.ResponseType.CANCEL:
+            self.sensorTwoSaveFolderPath = dialog.get_file().get_path()
+            print("Save folder selected for Sensor 2: " + self.sensorTwoSaveFolderPath)
+        elif response_id == Gtk.ResponseType.CANCEL:
             print("Cancel clicked")
-
         dialog.destroy()
 
+    def on_save_folder(self, widget):
+        """Where to save images. Sets the proper path for self.sensorXsave
+        """
+        
+        dialog = Gtk.FileChooserDialog(
+            title="Please choose a save folder for your annotations",
+            transient_for=self,
+            action=Gtk.FileChooserAction.SELECT_FOLDER,
+        )
+
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda w: dialog.response(Gtk.ResponseType.CANCEL))
+        dialog.add_action_widget(cancel_button, Gtk.ResponseType.CANCEL)
+
+        open_button = Gtk.Button(label="Open")
+        open_button.connect("clicked", lambda w: dialog.response(Gtk.ResponseType.OK))
+        dialog.add_action_widget(open_button, Gtk.ResponseType.OK)
+
+        dialog.connect("response", self.on_save_folder_response)
+        dialog.present()
+
     def calc_offsets(self, widget):
+        print('Calculating offsets...')
+
         self.opacity = int(self.trackbarOpacity.get_text())
         self.x_offset = int(self.trackbarOffsetX.get_text())
         self.y_offset = int(self.trackbarOffsetY.get_text())
         self.scale = float(self.trackbarScale.get_text())
 
+        print('Opacity: ', self.opacity)
+        print('X Offset: ', self.x_offset)
+        print('Y Offset: ', self.y_offset)
+        print('Scale: ', self.scale)
+
         imageFromScale = self.calc_scale(self.scale)
         imageFromMove = self.move_image(
             self.x_offset, self.y_offset, imageFromScale)
         imageFromOpacity = self.calc_opacity(self.opacity, imageFromMove)
+        print('Offsets calculated.')
+
         self.load_overlay_image(imageFromOpacity)
 
     def on_sync_folders(self, widget):
@@ -282,30 +305,43 @@ class MultiSensorFrameAligner(Gtk.Window):
 
         self.load_image(self.image1, 1)
 
-    def on_folder_clicked(self, widget, sensor_number):
-        dialog = Gtk.FileChooserDialog("Please choose a folder", self,
-                                       Gtk.FileChooserAction.SELECT_FOLDER,
-                                       (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                        "Select", Gtk.ResponseType.OK))
-        dialog.set_default_size(800, 400)
-
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            print("Select clicked")
-            print("Folder selected: " + dialog.get_filename())
+    def on_dialog_response(self, dialog, response_id, sensor_number):
+        print("Sorting response...")
+        
+        if response_id == Gtk.ResponseType.OK:
+            print("Selected folder:", dialog.get_file().get_path())
+            # print("Folder selected: " + dialog.get_filename())
 
             # set the global filePath for the dialog buttons
             if sensor_number == 1:
-                self.sensorOnePath = dialog.get_filename()
+                self.sensorOnePath = dialog.get_file().get_path()
                 self.load_folder_images(self.sensorOnePath, sensor_number)
             else:
-                self.sensorTwoPath = dialog.get_filename()
+                self.sensorTwoPath = dialog.get_file().get_path()
                 self.load_folder_images(self.sensorTwoPath, sensor_number)
-
-        elif response == Gtk.ResponseType.CANCEL:
+        elif response_id == Gtk.ResponseType.CANCEL:
             print("Cancel clicked")
-
         dialog.destroy()
+
+    def on_folder_clicked(self, widget, sensor_number):
+        print("Button clicked, attempting to open dialog...")
+
+        dialog = Gtk.FileChooserDialog(
+            title="Please choose a folder",
+            transient_for=self,
+            action=Gtk.FileChooserAction.SELECT_FOLDER,
+        )
+
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda w: dialog.response(Gtk.ResponseType.CANCEL))
+        dialog.add_action_widget(cancel_button, Gtk.ResponseType.CANCEL)
+
+        open_button = Gtk.Button(label="Open")
+        open_button.connect("clicked", lambda w: dialog.response(Gtk.ResponseType.OK))
+        dialog.add_action_widget(open_button, Gtk.ResponseType.OK)
+
+        dialog.connect("response", self.on_dialog_response, sensor_number)
+        dialog.present()
 
     def load_next_image(self, widget):
         if self.count >= (len(self.sensorOneImages) - 1):
@@ -351,10 +387,22 @@ class MultiSensorFrameAligner(Gtk.Window):
         pass
 
     def load_overlay_image(self, image):
+        print('Loading overlay image...')
         h3, w3, d3 = self.imageArray1.shape
         pixbuf3 = GdkPixbuf.Pixbuf.new_from_data(
             image.tostring(), GdkPixbuf.Colorspace.RGB, False, 8, w3, h3, w3*3, None, None)
-        self.image1.set_from_pixbuf(pixbuf3)
+        print('Overlay image loaded.')
+        if pixbuf3:
+            print(f"Pixbuf dimensions: {pixbuf3.get_width()} x {pixbuf3.get_height()}")
+        else:
+            print("Pixbuf is None!")
+
+        cv2.imwrite("/home/richardeverts/Documents/Bestie Bot/Product/test_image.png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        
+        print('Displaying overlay image...')
+        self.image1.set_size_request(320, 240)
+        self.image1.set_pixbuf(pixbuf3)
+
 
     def calc_opacity(self, value, image):
         alpha = value / 100
@@ -387,6 +435,10 @@ class MultiSensorFrameAligner(Gtk.Window):
         return revisedImage
 
     def calc_scale(self, scale):
+        if scale <= 0:
+            print("Invalid scale value:", scale)
+            return self.imageArray2
+        
         desired_h = 240
         desired_w = 320
 
