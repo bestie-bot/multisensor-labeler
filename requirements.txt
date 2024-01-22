@@ -1,6 +1,6 @@
 natsort==8.4.0
 numpy==1.26.0
 opencv-python==4.8.0.76
-Pillow==10.0.1
+Pillow==10.2.0
 pycairo==1.25.0
 PyGObject==3.46.0
